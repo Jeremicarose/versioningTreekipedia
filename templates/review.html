@@ -1,0 +1,189 @@
+{% extends "base.html" %}
+
+{% block title %}Review Changes{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <h1 class="mb-3">
+            <i class="bi bi-check2-square"></i> Review Changes
+        </h1>
+        <p class="lead">Review the changes in your upload before creating a new version.</p>
+    </div>
+</div>
+
+{% if comparison.error is defined %}
+<div class="alert alert-warning">
+    <h4 class="alert-heading"><i class="bi bi-exclamation-triangle"></i> Error</h4>
+    <p>{{ comparison.error }}</p>
+</div>
+{% else %}
+<div class="card mb-4">
+    <div class="card-header">
+        <i class="bi bi-file-diff"></i> Change Summary
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <h5>File Information</h5>
+                <ul>
+                    <li>Filename: <strong>{{ filename }}</strong></li>
+                    <li>Total rows: <strong>{{ comparison.files.original.row_count }} → {{ comparison.files.modified.row_count }}</strong> 
+                        <span class="badge {% if comparison.files.modified.row_count > comparison.files.original.row_count %}bg-success{% elif comparison.files.modified.row_count < comparison.files.original.row_count %}bg-danger{% else %}bg-secondary{% endif %}">
+                            {% if comparison.files.modified.row_count > comparison.files.original.row_count %}+{{ comparison.files.modified.row_count - comparison.files.original.row_count }}
+                            {% elif comparison.files.modified.row_count < comparison.files.original.row_count %}-{{ comparison.files.original.row_count - comparison.files.modified.row_count }}
+                            {% else %}0{% endif %}
+                        </span>
+                    </li>
+                    <li>Total columns: <strong>{{ comparison.files.original.column_count }} → {{ comparison.files.modified.column_count }}</strong>
+                        <span class="badge {% if comparison.files.modified.column_count > comparison.files.original.column_count %}bg-success{% elif comparison.files.modified.column_count < comparison.files.original.column_count %}bg-danger{% else %}bg-secondary{% endif %}">
+                            {% if comparison.files.modified.column_count > comparison.files.original.column_count %}+{{ comparison.files.modified.column_count - comparison.files.original.column_count }}
+                            {% elif comparison.files.modified.column_count < comparison.files.original.column_count %}-{{ comparison.files.original.column_count - comparison.files.modified.column_count }}
+                            {% else %}0{% endif %}
+                        </span>
+                    </li>
+                </ul>
+            </div>
+            <div class="col-md-6">
+                <h5>Changes</h5>
+                <ul>
+                    {% if comparison.summary.rows.added_count is defined %}
+                    <li>Added species: <strong>{{ comparison.summary.rows.added_count }}</strong></li>
+                    <li>Removed species: <strong>{{ comparison.summary.rows.removed_count }}</strong></li>
+                    <li>Modified species: <strong>{{ comparison.summary.rows.modified_count }}</strong></li>
+                    {% endif %}
+                    
+                    {% if comparison.summary.columns.added %}
+                    <li>New columns: <strong>{{ comparison.summary.columns.added|join(', ') }}</strong></li>
+                    {% endif %}
+                    
+                    {% if comparison.summary.columns.removed %}
+                    <li>Removed columns: <strong>{{ comparison.summary.columns.removed|join(', ') }}</strong></li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+        
+        {% if comparison.details.modified_rows %}
+        <hr>
+        <h5>Sample of Modified Species</h5>
+        <div class="table-container">
+            <table class="table table-sm table-bordered">
+                <thead>
+                    <tr>
+                        <th>Species ID</th>
+                        <th>Field</th>
+                        <th>From</th>
+                        <th>To</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for mod in comparison.details.modified_rows[:5] %}
+                    {% for field, change in mod.changes.items() %}
+                    <tr>
+                        {% if loop.first %}
+                        <td rowspan="{{ mod.changes|length }}">{{ mod.id }}</td>
+                        {% endif %}
+                        <td>{{ field }}</td>
+                        <td>{{ change.from }}</td>
+                        <td>{{ change.to }}</td>
+                    </tr>
+                    {% endfor %}
+                    {% endfor %}
+                </tbody>
+            </table>
+            
+            {% if comparison.details.modified_rows|length > 5 %}
+            <p class="text-muted">Showing 5 of {{ comparison.details.modified_rows|length }} modified rows</p>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header">
+        <i class="bi bi-table"></i> Data Preview
+    </div>
+    <div class="card-body table-responsive">
+        <table class="table table-bordered table-striped">
+            <thead>
+                <tr>
+                    {% for col in columns %}
+                    <th>{{ col }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in sample_data %}
+                <tr>
+                    {% for col in columns %}
+                    <td>{{ row[col] }}</td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <p class="text-muted">Showing first {{ sample_data|length }} rows</p>
+    </div>
+</div>
+
+<form method="post" action="{{ url_for('submit_version') }}">
+    <input type="hidden" name="upload_path" value="{{ upload_path }}">
+    
+    <div class="card mb-4">
+        <div class="card-header">
+            <i class="bi bi-pencil-square"></i> Version Information
+        </div>
+        <div class="card-body">
+            <div class="mb-3">
+                <label for="message" class="form-label">Description of Changes</label>
+                <textarea class="form-control" id="message" name="message" rows="3" required></textarea>
+                <div class="form-text">Describe what changes you made to the data (e.g., "Updated oak species heights")</div>
+            </div>
+            
+            <div class="mb-3">
+                <label for="contributor" class="form-label">Contributor Name</label>
+                <input type="text" class="form-control" id="contributor" name="contributor" required>
+                <div class="form-text">Your name will be recorded with this version</div>
+            </div>
+            
+            <div class="mb-3">
+                <label class="form-label">Version Type</label>
+                <div class="form-text mb-2">Choose how to increment the version number:</div>
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="radio" name="version_type" id="patchVersion" value="patch" checked>
+                    <label class="form-check-label" for="patchVersion">
+                        Patch (1.0.0 → 1.0.1)
+                        <small class="d-block text-muted">Minor corrections or updates</small>
+                    </label>
+                </div>
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="radio" name="version_type" id="minorVersion" value="minor">
+                    <label class="form-check-label" for="minorVersion">
+                        Minor (1.0.0 → 1.1.0)
+                        <small class="d-block text-muted">New species or significant updates</small>
+                    </label>
+                </div>
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="radio" name="version_type" id="majorVersion" value="major">
+                    <label class="form-check-label" for="majorVersion">
+                        Major (1.0.0 → 2.0.0)
+                        <small class="d-block text-muted">Structural changes or complete revisions</small>
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="d-flex gap-2 mb-5">
+        <a href="{{ url_for('upload') }}" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> Back
+        </a>
+        <button type="submit" class="btn btn-success">
+            <i class="bi bi-check-circle"></i> Create New Version
+        </button>
+    </div>
+</form>
+{% endif %}
+{% endblock %}

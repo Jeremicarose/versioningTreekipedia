@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+
+{% block title %}Treekipedia Versions{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <h1 class="mb-3">
+            <i class="bi bi-layers"></i> Species Data Versions
+        </h1>
+        <p class="lead">Browse all versions of the Treekipedia species data.</p>
+    </div>
+</div>
+
+{% if not has_data %}
+<div class="alert alert-info">
+    <h4 class="alert-heading"><i class="bi bi-info-circle"></i> Get Started</h4>
+    <p>You need to initialize the repository with your first CSV file before you can start versioning.</p>
+    <a href="{{ url_for('initialize') }}" class="btn btn-primary">
+        <i class="bi bi-plus-circle"></i> Initialize Repository
+    </a>
+</div>
+{% else %}
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <i class="bi bi-check-circle"></i> Current Version
+            </div>
+            <div class="card-body">
+                <p>Access the latest version of your species data.</p>
+                <a href="{{ url_for('version_detail', version_id='current') }}" class="btn btn-outline-primary">
+                    <i class="bi bi-eye"></i> View Current Data
+                </a>
+                <a href="{{ url_for('download_version', version_id='current') }}" class="btn btn-outline-secondary">
+                    <i class="bi bi-download"></i> Download CSV
+                </a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <i class="bi bi-plus-circle"></i> New Version
+            </div>
+            <div class="card-body">
+                <p>Upload a new version of the species data.</p>
+                <a href="{{ url_for('upload') }}" class="btn btn-success">
+                    <i class="bi bi-upload"></i> Upload New Version
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <div class="d-flex justify-content-between align-items-center">
+            <span><i class="bi bi-clock-history"></i> Version History</span>
+            <div class="input-group input-group-sm" style="width: 250px;">
+                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                <input type="text" class="form-control" id="version-search" placeholder="Search versions...">
+            </div>
+        </div>
+    </div>
+    <div class="card-body p-0">
+        <div class="list-group list-group-flush" id="version-list">
+            {% for version in versions %}
+            <div class="list-group-item version-list-item">
+                <div class="d-flex w-100 justify-content-between">
+                    <h5 class="mb-1">
+                        {{ version.version }}
+                        {% if version.is_current %}
+                        <span class="badge bg-primary">Current</span>
+                        {% endif %}
+                    </h5>
+                    <small class="version-date">
+                        {{ version.timestamp.split('T')[0] }}
+                    </small>
+                </div>
+                <p class="version-message mb-1">{{ version.message }}</p>
+                <small class="text-muted">Contributed by {{ version.contributor }}</small>
+                
+                {% if version.changes and version.changes.rows %}
+                <div class="mt-1">
+                    <span class="badge bg-success">+{{ version.changes.rows.added_count }}</span>
+                    <span class="badge bg-danger">-{{ version.changes.rows.removed_count }}</span>
+                    <span class="badge bg-info">~{{ version.changes.rows.modified_count }}</span>
+                </div>
+                {% endif %}
+                
+                <div class="d-flex mt-2">
+                    <a href="{{ url_for('version_detail', version_id=version.version) }}" class="btn btn-sm btn-outline-primary me-2">
+                        <i class="bi bi-eye"></i> View
+                    </a>
+                    <a href="{{ url_for('download_version', version_id=version.version) }}" class="btn btn-sm btn-outline-secondary me-2">
+                        <i class="bi bi-download"></i> Download
+                    </a>
+                </div>
+            </div>
+            {% else %}
+            <div class="list-group-item">
+                <p class="text-center text-muted my-3">No versions available yet.</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Search functionality for versions
+        const searchInput = document.getElementById('version-search');
+        const versionList = document.getElementById('version-list');
+        
+        if (searchInput && versionList) {
+            searchInput.addEventListener('keyup', function() {
+                const searchTerm = this.value.toLowerCase();
+                const versions = versionList.querySelectorAll('.version-list-item');
+                
+                versions.forEach(item => {
+                    const text = item.textContent.toLowerCase();
+                    const display = text.includes(searchTerm) ? '' : 'none';
+                    item.style.display = display;
+                });
+            });
+        }
+    });
+</script>
+{% endblock %}

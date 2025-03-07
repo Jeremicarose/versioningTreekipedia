@@ -1,0 +1,222 @@
+{% extends "base.html" %}
+
+{% block title %}Version {{ version_id }}{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <h1 class="mb-3">
+            <i class="bi bi-tag"></i> Version {{ version_id }}
+            {% if version_info.is_current %}
+            <span class="badge bg-primary">Current</span>
+            {% endif %}
+        </h1>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header">
+        <i class="bi bi-info-circle"></i> Version Information
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <ul class="list-unstyled">
+                    <li><strong>Created:</strong> {{ version_info.timestamp.split('T')[0] }}</li>
+                    <li><strong>Contributor:</strong> {{ version_info.contributor }}</li>
+                    <li><strong>Message:</strong> {{ version_info.message }}</li>
+                </ul>
+            </div>
+            <div class="col-md-6">
+                <ul class="list-unstyled">
+                    {% if version_info.stats %}
+                    <li><strong>Rows:</strong> {{ version_info.stats.row_count }}</li>
+                    <li><strong>Columns:</strong> {{ version_info.stats.column_count }}</li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+        
+        <div class="mt-3">
+            <a href="{{ url_for('download_version', version_id=version_id) }}" class="btn btn-primary">
+                <i class="bi bi-download"></i> Download CSV
+            </a>
+            {% if report %}
+            <a href="{{ url_for('report', version_id=version_id) }}" class="btn btn-info">
+                <i class="bi bi-file-earmark-text"></i> Download Change Report
+            </a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% if report %}
+<div class="card mb-4">
+    <div class="card-header">
+        <i class="bi bi-file-diff"></i> Change Summary
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <h5>Overview</h5>
+                <ul>
+                    <li>Total rows: {{ report.files.original.row_count }} → {{ report.files.modified.row_count }}</li>
+                    <li>Columns: {{ report.files.original.column_count }} → {{ report.files.modified.column_count }}</li>
+                </ul>
+            </div>
+            <div class="col-md-6">
+                <h5>Changes</h5>
+                <ul>
+                    {% if report.summary.rows.added_count is defined %}
+                    <li>Added species: {{ report.summary.rows.added_count }}</li>
+                    <li>Removed species: {{ report.summary.rows.removed_count }}</li>
+                    <li>Modified species: {{ report.summary.rows.modified_count }}</li>
+                    {% endif %}
+                    
+                    {% if report.summary.columns.added %}
+                    <li>New columns: {{ report.summary.columns.added|join(', ') }}</li>
+                    {% endif %}
+                    
+                    {% if report.summary.columns.removed %}
+                    <li>Removed columns: {{ report.summary.columns.removed|join(', ') }}</li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+        
+        {% if report.details.modified_rows %}
+        <hr>
+        <h5>Sample of Modified Species</h5>
+        <div class="table-container">
+            <table class="table table-sm table-bordered">
+                <thead>
+                    <tr>
+                        <th>Species ID</th>
+                        <th>Field</th>
+                        <th>From</th>
+                        <th>To</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for mod in report.details.modified_rows[:5] %}
+                    {% for field, change in mod.changes.items() %}
+                    <tr>
+                        {% if loop.first %}
+                        <td rowspan="{{ mod.changes|length }}">{{ mod.id }}</td>
+                        {% endif %}
+                        <td>{{ field }}</td>
+                        <td>{{ change.from }}</td>
+                        <td>{{ change.to }}</td>
+                    </tr>
+                    {% endfor %}
+                    {% endfor %}
+                </tbody>
+            </table>
+            
+            {% if report.details.modified_rows|length > 5 %}
+            <p class="text-muted">Showing 5 of {{ report.details.modified_rows|length }} modified rows</p>
+            {% endif %}
+        </div>
+        {% endif %}
+        
+        {% if report.details.added_rows %}
+        <hr>
+        <h5>Sample of Added Species</h5>
+        <div>
+            <ul>
+                {% for species_id in report.details.added_rows[:10] %}
+                <li>{{ species_id }}</li>
+                {% endfor %}
+                {% if report.details.added_rows|length > 10 %}
+                <li class="text-muted">... and {{ report.details.added_rows|length - 10 }} more</li>
+                {% endif %}
+            </ul>
+        </div>
+        {% endif %}
+        
+        {% if report.details.removed_rows %}
+        <hr>
+        <h5>Sample of Removed Species</h5>
+        <div>
+            <ul>
+                {% for species_id in report.details.removed_rows[:10] %}
+                <li>{{ species_id }}</li>
+                {% endfor %}
+                {% if report.details.removed_rows|length > 10 %}
+                <li class="text-muted">... and {{ report.details.removed_rows|length - 10 }} more</li>
+                {% endif %}
+            </ul>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-table"></i> Data Preview</span>
+        <div class="input-group input-group-sm" style="width: 250px;">
+            <span class="input-group-text"><i class="bi bi-search"></i></span>
+            <input type="text" class="form-control" id="table-search" placeholder="Search data...">
+        </div>
+    </div>
+    <div class="card-body table-responsive">
+        <table class="table table-bordered table-striped" id="data-table">
+            <thead>
+                <tr>
+                    {% for col in columns %}
+                    <th data-column="{{ col }}" data-sortable="true">
+                        {{ col }}
+                        <span class="sort-icon"></span>
+                    </th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in sample_data %}
+                <tr>
+                    {% for col in columns %}
+                    <td data-field="{{ col }}">{{ row[col] }}</td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <p class="text-muted">Showing {{ sample_data|length }} of {% if version_info.stats %}{{ version_info.stats.row_count }}{% else %}many{% endif %} rows</p>
+    </div>
+</div>
+
+<div class="d-flex gap-2 mt-4 mb-5">
+    <a href="{{ url_for('index') }}" class="btn btn-secondary">
+        <i class="bi bi-arrow-left"></i> Back to Versions
+    </a>
+    {% if report %}
+    <a href="{{ url_for('compare') }}?version1={{ version_id }}&version2=current" class="btn btn-info">
+        <i class="bi bi-file-diff"></i> Compare with Current
+    </a>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Table search functionality
+        const searchInput = document.getElementById('table-search');
+        const dataTable = document.getElementById('data-table');
+        
+        if (searchInput && dataTable) {
+            searchInput.addEventListener('keyup', function() {
+                const searchTerm = this.value.toLowerCase();
+                const rows = dataTable.querySelectorAll('tbody tr');
+                
+                rows.forEach(row => {
+                    const text = row.textContent.toLowerCase();
+                    const display = text.includes(searchTerm) ? '' : 'none';
+                    row.style.display = display;
+                });
+            });
+        }
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+
+{% block title %}Compare Versions{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <h1 class="mb-3">
+            <i class="bi bi-file-diff"></i> Compare Versions
+        </h1>
+        <p class="lead">Compare any two versions to see what changed.</p>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header">
+        <i class="bi bi-filter"></i> Select Versions
+    </div>
+    <div class="card-body">
+        <form method="post" class="row g-3">
+            <div class="col-md-5">
+                <label for="version1" class="form-label">Original Version</label>
+                <select class="form-select" id="version1" name="version1" required>
+                    <option value="" {% if not version1 %}selected{% endif %} disabled>Select version...</option>
+                    {% for v in versions %}
+                    <option value="{{ v.version }}" {% if version1 == v.version %}selected{% endif %}>
+                        {{ v.version }} ({{ v.timestamp.split('T')[0] }})
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="col-md-2 d-flex align-items-center justify-content-center">
+                <span class="fs-3"><i class="bi bi-arrow-right"></i></span>
+            </div>
+            
+            <div class="col-md-5">
+                <label for="version2" class="form-label">Modified Version</label>
+                <select class="form-select" id="version2" name="version2" required>
+                    <option value="" {% if not version2 %}selected{% endif %} disabled>Select version...</option>
+                    <option value="current" {% if version2 == 'current' %}selected{% endif %}>Current</option>
+                    {% for v in versions %}
+                    <option value="{{ v.version }}" {% if version2 == v.version %}selected{% endif %}>
+                        {{ v.version }} ({{ v.timestamp.split('T')[0] }})
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="col-12 mt-4">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-search"></i> Compare Versions
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% if comparison %}
+<div class="card mb-4">
+    <div class="card-header">
+        <i class="bi bi-file-diff"></i> Comparison Results: {{ version1 }} → {{ version2 }}
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <h5>Overview</h5>
+                <ul>
+                    <li>Total rows: <strong>{{ comparison.files.original.row_count }} → {{ comparison.files.modified.row_count }}</strong> 
+                        <span class="badge {% if comparison.files.modified.row_count > comparison.files.original.row_count %}bg-success{% elif comparison.files.modified.row_count < comparison.files.original.row_count %}bg-danger{% else %}bg-secondary{% endif %}">
+                            {% if comparison.files.modified.row_count > comparison.files.original.row_count %}+{{ comparison.files.modified.row_count - comparison.files.original.row_count }}
+                            {% elif comparison.files.modified.row_count < comparison.files.original.row_count %}-{{ comparison.files.original.row_count - comparison.files.modified.row_count }}
+                            {% else %}0{% endif %}
+                        </span>
+                    </li>
+                    <li>Total columns: <strong>{{ comparison.files.original.column_count }} → {{ comparison.files.modified.column_count }}</strong>
+                        <span class="badge {% if comparison.files.modified.column_count > comparison.files.original.column_count %}bg-success{% elif comparison.files.modified.column_count < comparison.files.original.column_count %}bg-danger{% else %}bg-secondary{% endif %}">
+                            {% if comparison.files.modified.column_count > comparison.files.original.column_count %}+{{ comparison.files.modified.column_count - comparison.files.original.column_count }}
+                            {% elif comparison.files.modified.column_count < comparison.files.original.column_count %}-{{ comparison.files.original.column_count - comparison.files.modified.column_count }}
+                            {% else %}0{% endif %}
+                        </span>
+                    </li>
+                </ul>
+            </div>
+            <div class="col-md-6">
+                <h5>Detailed Changes</h5>
+                <ul>
+                    {% if comparison.summary.rows.added_count is defined %}
+                    <li>Added species: <strong>{{ comparison.summary.rows.added_count }}</strong></li>
+                    <li>Removed species: <strong>{{ comparison.summary.rows.removed_count }}</strong></li>
+                    <li>Modified species: <strong>{{ comparison.summary.rows.modified_count }}</strong></li>
+                    {% endif %}
+                    
+                    {% if comparison.summary.columns.added %}
+                    <li>Added columns: <strong>{{ comparison.summary.columns.added|join(', ') }}</strong></li>
+                    {% endif %}
+                    
+                    {% if comparison.summary.columns.removed %}
+                    <li>Removed columns: <strong>{{ comparison.summary.columns.removed|join(', ') }}</strong></li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+        
+        {% if comparison.details.modified_rows %}
+        <hr>
+        <h5>Modified Species</h5>
+        <div class="table-container">
+            <table class="table table-sm table-bordered">
+                <thead>
+                    <tr>
+                        <th>Species ID</th>
+                        <th>Field</th>
+                        <th>From</th>
+                        <th>To</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for mod in comparison.details.modified_rows %}
+                    {% for field, change in mod.changes.items() %}
+                    <tr>
+                        {% if loop.first %}
+                        <td rowspan="{{ mod.changes|length }}">{{ mod.id }}</td>
+                        {% endif %}
+                        <td>{{ field }}</td>
+                        <td><span class="change-highlight change-from">{{ change.from }}</span></td>
+                        <td><span class="change-highlight change-to">{{ change.to }}</span></td>
+                    </tr>
+                    {% endfor %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+        
+        <div class="row mt-4">
+            {% if comparison.details.added_rows %}
+            <div class="col-md-6">
+                <h5>Added Species</h5>
+                <div class="p-3 bg-light rounded">
+                    <ul class="list-unstyled mb-0">
+                        {% for species_id in comparison.details.added_rows %}
+                        <li class="diff-added p-2 mb-1 rounded">{{ species_id }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+            {% endif %}
+            
+            {% if comparison.details.removed_rows %}
+            <div class="col-md-6">
+                <h5>Removed Species</h5>
+                <div class="p-3 bg-light rounded">
+                    <ul class="list-unstyled mb-0">
+                        {% for species_id in comparison.details.removed_rows %}
+                        <li class="diff-removed p-2 mb-1 rounded">{{ species_id }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="d-flex gap-2 mb-5">
+    <a href="{{ url_for('index') }}" class="btn btn-secondary">
+        <i class="bi bi-arrow-left"></i> Back to Versions
+    </a>
+    
+    <a href="{{ url_for('download_version', version_id=version1) }}" class="btn btn-outline-primary">
+        <i class="bi bi-download"></i> Download {{ version1 }}
+    </a>
+    
+    <a href="{{ url_for('download_version', version_id=version2) }}" class="btn btn-outline-primary">
+        <i class="bi bi-download"></i> Download {{ version2 }}
+    </a>
+</div>
+{% endif %}
+{% endblock %}

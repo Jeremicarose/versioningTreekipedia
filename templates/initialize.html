@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+
+{% block title %}Initialize Repository{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <h1 class="mb-3">
+            <i class="bi bi-stars"></i> Initialize Repository
+        </h1>
+        <p class="lead">Start versioning by uploading your first CSV file.</p>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <i class="bi bi-play-circle"></i> Get Started
+    </div>
+    <div class="card-body">
+        <p>This will be the first version of your species data. All future versions will be compared against this baseline.</p>
+        
+        <form method="post" enctype="multipart/form-data">
+            <div class="mb-4">
+                <div id="file-upload-container" class="file-upload-container">
+                    <i class="bi bi-file-earmark-spreadsheet display-4"></i>
+                    <p class="mt-3">Drag and drop your CSV file here</p>
+                    <p class="text-muted">or</p>
+                    <button type="button" class="btn btn-outline-primary" onclick="document.getElementById('file').click()">
+                        <i class="bi bi-folder"></i> Browse Files
+                    </button>
+                    <div class="mt-3">
+                        <span id="file-name" class="text-muted">No file selected</span>
+                        <span id="file-size" class="text-muted"></span>
+                    </div>
+                    <input type="file" class="d-none" id="file" name="file" accept=".csv" required>
+                </div>
+            </div>
+            
+            <div class="mb-3">
+                <label for="message" class="form-label">Description</label>
+                <input type="text" class="form-control" id="message" name="message" value="Initial species data" required>
+                <div class="form-text">A brief description of this initial dataset</div>
+            </div>
+            
+            <div class="mb-3">
+                <label for="contributor" class="form-label">Contributor</label>
+                <input type="text" class="form-control" id="contributor" name="contributor" value="Admin" required>
+                <div class="form-text">Your name or organization</div>
+            </div>
+            
+            <div class="d-grid gap-2">
+                <button type="submit" class="btn btn-success">
+                    <i class="bi bi-check-circle"></i> Initialize Repository
+                </button>
+                <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">
+                    <i class="bi bi-x-circle"></i> Cancel
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card mt-4">
+    <div class="card-header">
+        <i class="bi bi-info-circle"></i> What Happens Next?
+    </div>
+    <div class="card-body">
+        <p>After initializing the repository:</p>
+        <ol>
+            <li>Your CSV file will be stored as version 1.0.0</li>
+            <li>The versioning system will be set up to track all future changes</li>
+            <li>You'll be able to upload new versions and see what changed</li>
+            <li>Each species in your data will be tracked over time</li>
+        </ol>
+    </div>
+</div>
+{% endblock %}

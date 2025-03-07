@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block title %}Upload New Version{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <h1 class="mb-3">
+            <i class="bi bi-cloud-upload"></i> Upload New Version
+        </h1>
+        <p class="lead">Upload a new version of the species data to track changes.</p>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <i class="bi bi-upload"></i> Upload CSV File
+    </div>
+    <div class="card-body">
+        <form method="post" enctype="multipart/form-data">
+            <div class="mb-4">
+                <div id="file-upload-container" class="file-upload-container">
+                    <i class="bi bi-file-earmark-spreadsheet display-4"></i>
+                    <p class="mt-3">Drag and drop your CSV file here</p>
+                    <p class="text-muted">or</p>
+                    <button type="button" class="btn btn-outline-primary" onclick="document.getElementById('file').click()">
+                        <i class="bi bi-folder"></i> Browse Files
+                    </button>
+                    <div class="mt-3">
+                        <span id="file-name" class="text-muted">No file selected</span>
+                        <span id="file-size" class="text-muted"></span>
+                    </div>
+                    <input type="file" class="d-none" id="file" name="file" accept=".csv" required>
+                </div>
+            </div>
+            
+            <div class="d-grid gap-2">
+                <button type="submit" class="btn btn-success">
+                    <i class="bi bi-arrow-right-circle"></i> Continue to Review
+                </button>
+                <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">
+                    <i class="bi bi-x-circle"></i> Cancel
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card mt-4">
+    <div class="card-header">
+        <i class="bi bi-info-circle"></i> Guidelines for CSV Uploads
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <h5>File Format</h5>
+                <ul>
+                    <li>Use CSV format (comma-separated values)</li>
+                    <li>UTF-8 encoding is recommended</li>
+                    <li>Include headers in the first row</li>
+                    <li>Each species should have a unique identifier</li>
+                </ul>
+            </div>
+            <div class="col-md-6">
+                <h5>Best Practices</h5>
+                <ul>
+                    <li>Keep the same column structure as previous versions</li>
+                    <li>Add clear descriptions when submitting changes</li>
+                    <li>Use semantic versioning for significant changes</li>
+                    <li>Test your CSV file before uploading</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
