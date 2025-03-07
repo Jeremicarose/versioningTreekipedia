@@ -1,0 +1,21 @@
+{
+  "versions": [
+    {
+      "version": "v1.0.0",
+      "timestamp": "2025-03-07T13:49:05.349761",
+      "message": "Initial species data",
+      "contributor": "System",
+      "file": "/Users/jeremicarose/Documents/dvc-example/data/current/species_data.csv",
+      "stats": {
+        "row_count": 0,
+        "column_count": 0
+      }
+    }
+  ],
+  "current_version": "v1.0.0",
+  "latest": {
+    "major": 1,
+    "minor": 0,
+    "patch": 0
+  }
+}
