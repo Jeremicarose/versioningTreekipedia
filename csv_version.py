@@ -16,6 +16,7 @@ import json
 import pandas as pd
 from datetime import datetime
 import logging
+import chardet
 
 # Set up logging
 logging.basicConfig(
@@ -45,6 +46,86 @@ class CSVVersioningSystem:
         self.metadata_file = os.path.join(self.base_dir, "version_metadata.json")
         
         logger.info(f"Initialized versioning system in {self.base_dir}")
+    
+    def detect_encoding(self, file_path):
+        """Detect the encoding of a file using chardet library"""
+        try:
+            # Read a sample of the file
+            with open(file_path, 'rb') as f:
+                raw_data = f.read(min(1024*1024, os.path.getsize(file_path)))  # Read up to 1MB
+            
+            # Detect encoding
+            result = chardet.detect(raw_data)
+            encoding = result['encoding']
+            confidence = result['confidence']
+            
+            logger.info(f"Detected encoding for {file_path}: {encoding} (confidence: {confidence:.2f})")
+            
+            # If confidence is low or encoding is None, default to latin-1
+            if encoding is None or confidence < 0.7:
+                logger.warning(f"Low confidence detection, defaulting to latin-1 for {file_path}")
+                return 'latin-1'
+            
+            return encoding
+        except Exception as e:
+            logger.warning(f"Error detecting encoding, defaulting to latin-1: {str(e)}")
+            return 'latin-1'
+    
+    def read_csv_safe(self, file_path, **kwargs):
+        """Safely read a CSV file with proper encoding detection and error handling"""
+        try:
+            # Try with modern pandas parameter first
+            try:
+                # Try UTF-8 first as it's most common
+                return pd.read_csv(file_path, low_memory=False, on_bad_lines='warn', **kwargs)
+            except UnicodeDecodeError:
+                # If UTF-8 fails, detect encoding and try again
+                encoding = self.detect_encoding(file_path)
+                logger.info(f"Using {encoding} encoding for {file_path}")
+                return pd.read_csv(file_path, encoding=encoding, low_memory=False, on_bad_lines='warn', **kwargs)
+            except TypeError:
+                # If 'on_bad_lines' is not recognized (older pandas), try with error_bad_lines
+                logger.info("Falling back to older pandas parameters")
+                try:
+                    return pd.read_csv(file_path, low_memory=False, error_bad_lines=False, warn_bad_lines=True, **kwargs)
+                except UnicodeDecodeError:
+                    encoding = self.detect_encoding(file_path)
+                    logger.info(f"Using {encoding} encoding for {file_path}")
+                    return pd.read_csv(file_path, encoding=encoding, low_memory=False, 
+                                       error_bad_lines=False, warn_bad_lines=True, **kwargs)
+        except pd.errors.ParserError as e:
+            logger.warning(f"Parser error with default settings, trying with more lenient settings: {e}")
+            # Try again with more lenient settings
+            try:
+                # Modern pandas with even more lenient settings
+                return pd.read_csv(file_path, encoding=self.detect_encoding(file_path), 
+                                   low_memory=False, on_bad_lines='skip', 
+                                   quoting=3,  # QUOTE_NONE
+                                   dtype=str,  # Read everything as strings
+                                   **{k: v for k, v in kwargs.items() if k not in ['on_bad_lines', 'error_bad_lines']})
+            except Exception as e2:
+                logger.error(f"Failed to read CSV with lenient settings: {str(e2)}")
+                
+                # Last resort: try to read with Python's csv module
+                try:
+                    logger.info("Attempting to read with csv module as last resort")
+                    import csv
+                    rows = []
+                    with open(file_path, 'r', encoding=self.detect_encoding(file_path)) as f:
+                        reader = csv.reader(f)
+                        for row in reader:
+                            rows.append(row)
+                    
+                    if not rows:
+                        raise ValueError("No data found in the file")
+                    
+                    return pd.DataFrame(rows[1:], columns=rows[0])
+                except Exception as e3:
+                    logger.error(f"All CSV reading methods failed: {str(e3)}")
+                    raise e  # Raise the original error as it's likely more informative
+        except Exception as e:
+            logger.error(f"Error reading CSV: {str(e)}")
+            raise
     
     def initialize(self, csv_file, message="Initial import", contributor="System"):
         """Initialize the repository with the first CSV file"""
@@ -83,7 +164,7 @@ class CSVVersioningSystem:
         
         # Read CSV and get stats
         try:
-            df = pd.read_csv(self.current_csv)
+            df = self.read_csv_safe(self.current_csv)
             stats = {
                 "row_count": len(df),
                 "column_count": len(df.columns)
@@ -132,128 +213,169 @@ class CSVVersioningSystem:
     
     def add_version(self, csv_file, message, contributor="User", version_type="patch"):
         """Add a new version of the CSV file"""
-        # Check if repository is initialized
-        if not os.path.exists(self.current_csv):
-            logger.error("Repository not initialized. Use initialize first.")
-            return False
-        
-        # Check if file exists
-        if not os.path.exists(csv_file):
-            logger.error(f"File not found: {csv_file}")
-            return False
-        
-        # Load metadata
         try:
-            with open(self.metadata_file, "r") as f:
-                metadata = json.load(f)
-        except (FileNotFoundError, json.JSONDecodeError) as e:
-            logger.error(f"Error loading metadata: {str(e)}")
-            return False
-        
-        # Generate new version number
-        latest = metadata["latest"]
-        if version_type == "major":
-            new_version = f"v{latest['major'] + 1}.0.0"
-            latest["major"] += 1
-            latest["minor"] = 0
-            latest["patch"] = 0
-        elif version_type == "minor":
-            new_version = f"v{latest['major']}.{latest['minor'] + 1}.0"
-            latest["minor"] += 1
-            latest["patch"] = 0
-        else:  # patch
-            new_version = f"v{latest['major']}.{latest['minor']}.{latest['patch'] + 1}"
-            latest["patch"] += 1
-        
-        logger.info(f"Creating new version: {new_version}")
-        
-        # Create version file
-        version_file = os.path.join(self.versions_dir, f"species_data_{new_version}.csv")
-        
-        # Backup current version
-        shutil.copy(self.current_csv, version_file)
-        logger.info(f"Backed up current version to {version_file}")
-        
-        # Compare the files and generate report
-        comparison = self.compare_csv(self.current_csv, csv_file)
-        
-        # Save comparison report
-        report_file = os.path.join(self.reports_dir, f"changes_{new_version}.json")
-        with open(report_file, "w") as f:
-            json.dump(comparison, f, indent=2)
-        logger.info(f"Generated change report at {report_file}")
-        
-        # Update current version with new file
-        shutil.copy(csv_file, self.current_csv)
-        logger.info(f"Updated current version with {csv_file}")
-        
-        # Track files with DVC
-        try:
-            subprocess.run(["dvc", "add", self.current_csv], cwd=self.base_dir, check=True)
-            subprocess.run(["dvc", "add", version_file], cwd=self.base_dir, check=True)
-            logger.info("Added files to DVC")
-        except subprocess.CalledProcessError as e:
-            logger.error(f"Error adding files to DVC: {str(e)}")
-            return False
-        
-        # Read CSV and get stats
-        try:
-            df = pd.read_csv(self.current_csv)
-            stats = {
-                "row_count": len(df),
-                "column_count": len(df.columns)
+            # Check if repository is initialized
+            if not os.path.exists(self.current_csv):
+                logger.error("Repository not initialized. Use initialize first.")
+                return False
+            
+            # Check if file exists
+            if not os.path.exists(csv_file):
+                logger.error(f"File not found: {csv_file}")
+                return False
+            
+            # Load metadata
+            try:
+                with open(self.metadata_file, "r") as f:
+                    metadata = json.load(f)
+            except (FileNotFoundError, json.JSONDecodeError) as e:
+                logger.error(f"Error loading metadata: {str(e)}")
+                return False
+            
+            # Generate new version number
+            latest = metadata["latest"]
+            if version_type == "major":
+                new_version = f"v{latest['major'] + 1}.0.0"
+                latest["major"] += 1
+                latest["minor"] = 0
+                latest["patch"] = 0
+            elif version_type == "minor":
+                new_version = f"v{latest['major']}.{latest['minor'] + 1}.0"
+                latest["minor"] += 1
+                latest["patch"] = 0
+            else:  # patch
+                new_version = f"v{latest['major']}.{latest['minor']}.{latest['patch'] + 1}"
+                latest["patch"] += 1
+            
+            logger.info(f"Creating new version: {new_version}")
+            
+            # Create version file
+            version_file = os.path.join(self.versions_dir, f"species_data_{new_version}.csv")
+            
+            # Backup current version
+            try:
+                shutil.copy(self.current_csv, version_file)
+                logger.info(f"Backed up current version to {version_file}")
+            except Exception as e:
+                logger.error(f"Error backing up current version: {str(e)}")
+                return False
+            
+            # Compare the files and generate report
+            try:
+                comparison = self.compare_csv(self.current_csv, csv_file)
+            except Exception as e:
+                logger.error(f"Error comparing files: {str(e)}")
+                comparison = {"error": str(e)}
+            
+            # Save comparison report
+            report_file = os.path.join(self.reports_dir, f"changes_{new_version}.json")
+            try:
+                with open(report_file, "w") as f:
+                    json.dump(comparison, f, indent=2)
+                logger.info(f"Generated change report at {report_file}")
+            except Exception as e:
+                logger.error(f"Error saving comparison report: {str(e)}")
+            
+            # Update current version with new file
+            try:
+                shutil.copy(csv_file, self.current_csv)
+                logger.info(f"Updated current version with {csv_file}")
+            except Exception as e:
+                logger.error(f"Error updating current version: {str(e)}")
+                return False
+            
+            # Track files with DVC
+            try:
+                subprocess.run(["dvc", "add", self.current_csv], cwd=self.base_dir, check=True)
+                subprocess.run(["dvc", "add", version_file], cwd=self.base_dir, check=True)
+                logger.info("Added files to DVC")
+            except subprocess.CalledProcessError as e:
+                logger.error(f"Error adding files to DVC: {str(e)}")
+                logger.error(f"DVC error output: {e.stderr if hasattr(e, 'stderr') else 'No stderr'}")
+                return False
+            
+            # Read CSV and get stats
+            try:
+                df = self.read_csv_safe(self.current_csv)
+                stats = {
+                    "row_count": len(df),
+                    "column_count": len(df.columns)
+                }
+            except Exception as e:
+                logger.error(f"Error reading CSV: {str(e)}")
+                stats = {"row_count": 0, "column_count": 0}
+            
+            # Update metadata
+            new_entry = {
+                "version": new_version,
+                "timestamp": datetime.now().isoformat(),
+                "message": message,
+                "contributor": contributor,
+                "file": version_file,
+                "previous_version": metadata["current_version"],
+                "stats": stats,
+                "changes": comparison["summary"] if "summary" in comparison else {}
             }
+            
+            metadata["versions"].append(new_entry)
+            metadata["current_version"] = new_version
+            metadata["latest"] = latest
+            
+            # Save updated metadata
+            try:
+                with open(self.metadata_file, "w") as f:
+                    json.dump(metadata, f, indent=2)
+                logger.info("Updated metadata file")
+            except Exception as e:
+                logger.error(f"Error saving metadata: {str(e)}")
+                return False
+            
+            # Commit changes to Git
+            try:
+                # Add files to Git
+                add_cmd = ["git", "add", 
+                        f"{self.current_csv}.dvc", 
+                        f"{version_file}.dvc", 
+                        self.metadata_file,
+                        report_file]
+                
+                subprocess.run(add_cmd, cwd=self.base_dir, check=True)
+                
+                # Commit changes
+                commit_cmd = ["git", "commit", "-m", f"{new_version}: {message}"]
+                subprocess.run(commit_cmd, cwd=self.base_dir, check=True)
+                
+                # Create tag
+                tag_cmd = ["git", "tag", "-a", new_version, "-m", message]
+                subprocess.run(tag_cmd, cwd=self.base_dir, check=True)
+                
+                logger.info("Committed changes to Git")
+            except subprocess.CalledProcessError as e:
+                logger.error(f"Error with Git: {str(e)}")
+                logger.error(f"Command: {e.cmd}")
+                logger.error(f"Return code: {e.returncode}")
+                logger.error(f"Output: {e.stdout if hasattr(e, 'stdout') else 'No stdout'}")
+                logger.error(f"Error output: {e.stderr if hasattr(e, 'stderr') else 'No stderr'}")
+                # Don't return False here, as we've already updated the metadata file
+                # This allows the version to be created even if Git operations fail
+            
+            logger.info(f"Successfully created version {new_version}")
+            return True
+        
         except Exception as e:
-            logger.error(f"Error reading CSV: {str(e)}")
-            stats = {"row_count": 0, "column_count": 0}
-        
-        # Update metadata
-        new_entry = {
-            "version": new_version,
-            "timestamp": datetime.now().isoformat(),
-            "message": message,
-            "contributor": contributor,
-            "file": version_file,
-            "previous_version": metadata["current_version"],
-            "stats": stats,
-            "changes": comparison["summary"] if "summary" in comparison else {}
-        }
-        
-        metadata["versions"].append(new_entry)
-        metadata["current_version"] = new_version
-        metadata["latest"] = latest
-        
-        # Save updated metadata
-        with open(self.metadata_file, "w") as f:
-            json.dump(metadata, f, indent=2)
-        logger.info("Updated metadata file")
-        
-        # Commit changes to Git
-        try:
-            subprocess.run(["git", "add", 
-                            f"{self.current_csv}.dvc", 
-                            f"{version_file}.dvc", 
-                            self.metadata_file,
-                            report_file], 
-                           cwd=self.base_dir, check=True)
-            subprocess.run(["git", "commit", "-m", f"{new_version}: {message}"], cwd=self.base_dir, check=True)
-            subprocess.run(["git", "tag", "-a", new_version, "-m", message], cwd=self.base_dir, check=True)
-            logger.info("Committed changes to Git")
-        except subprocess.CalledProcessError as e:
-            logger.error(f"Error committing to Git: {str(e)}")
+            logger.error(f"Unexpected error in add_version: {str(e)}")
+            import traceback
+            logger.error(traceback.format_exc())
             return False
-        
-        logger.info(f"Successfully created version {new_version}")
-        return True
     
     def compare_csv(self, original_file, modified_file, id_column="species"):
         """Compare two CSV files and identify changes"""
         logger.info(f"Comparing {original_file} and {modified_file}")
         
-        # Load both CSV files
+        # Load both CSV files with encoding handling
         try:
-            df1 = pd.read_csv(original_file, low_memory=False)
-            df2 = pd.read_csv(modified_file, low_memory=False)
+            df1 = self.read_csv_safe(original_file)
+            df2 = self.read_csv_safe(modified_file)
         except Exception as e:
             logger.error(f"Error loading CSV files: {e}")
             return {"error": str(e)}
@@ -299,8 +421,11 @@ class CSVVersioningSystem:
             # Try to identify a primary key column
             potential_key_cols = []
             for col in common_cols:
-                if df1[col].nunique() == len(df1) and df2[col].nunique() == len(df2):
-                    potential_key_cols.append(col)
+                try:
+                    if df1[col].nunique() == len(df1) and df2[col].nunique() == len(df2):
+                        potential_key_cols.append(col)
+                except:
+                    continue
             
             # Use the first potential key column or None
             id_col = potential_key_cols[0] if potential_key_cols else None
@@ -309,8 +434,8 @@ class CSVVersioningSystem:
             logger.info(f"Using '{id_col}' as identifier column")
             
             # Get sets of IDs
-            ids_v1 = set(df1[id_col])
-            ids_v2 = set(df2[id_col])
+            ids_v1 = set(df1[id_col].astype(str))
+            ids_v2 = set(df2[id_col].astype(str))
             
             # Find added and removed rows
             added_ids = list(ids_v2 - ids_v1)
@@ -332,35 +457,45 @@ class CSVVersioningSystem:
             modified_rows = []
             
             for id_val in common_ids:
-                row1 = df1[df1[id_col] == id_val].iloc[0]
-                row2 = df2[df2[id_col] == id_val].iloc[0]
-                
-                # Compare values for common columns
-                differences = {}
-                for col in common_cols:
-                    # Handle NaN values
-                    val1 = row1[col]
-                    val2 = row2[col]
+                try:
+                    rows1 = df1[df1[id_col].astype(str) == id_val]
+                    rows2 = df2[df2[id_col].astype(str) == id_val]
                     
-                    # Check if values are different
-                    if pd.isna(val1) and pd.isna(val2):
-                        continue  # Both are NaN, considered equal
-                    elif pd.isna(val1) or pd.isna(val2):
-                        differences[col] = {
-                            "from": str(val1) if not pd.isna(val1) else "NULL",
-                            "to": str(val2) if not pd.isna(val2) else "NULL"
-                        }
-                    elif val1 != val2:
-                        differences[col] = {
-                            "from": str(val1),
-                            "to": str(val2)
-                        }
-                
-                if differences:
-                    modified_rows.append({
-                        "id": id_val,
-                        "changes": differences
-                    })
+                    if len(rows1) == 0 or len(rows2) == 0:
+                        continue
+                        
+                    row1 = rows1.iloc[0]
+                    row2 = rows2.iloc[0]
+                    
+                    # Compare values for common columns
+                    differences = {}
+                    for col in common_cols:
+                        # Handle NaN values
+                        val1 = row1[col]
+                        val2 = row2[col]
+                        
+                        # Check if values are different
+                        if pd.isna(val1) and pd.isna(val2):
+                            continue  # Both are NaN, considered equal
+                        elif pd.isna(val1) or pd.isna(val2):
+                            differences[col] = {
+                                "from": str(val1) if not pd.isna(val1) else "NULL",
+                                "to": str(val2) if not pd.isna(val2) else "NULL"
+                            }
+                        elif val1 != val2:
+                            differences[col] = {
+                                "from": str(val1),
+                                "to": str(val2)
+                            }
+                    
+                    if differences:
+                        modified_rows.append({
+                            "id": id_val,
+                            "changes": differences
+                        })
+                except Exception as e:
+                    logger.warning(f"Error comparing row with ID {id_val}: {str(e)}")
+                    continue
             
             # Update modified count
             changes["summary"]["rows"]["modified_count"] = len(modified_rows)
@@ -369,7 +504,7 @@ class CSVVersioningSystem:
             changes["details"]["modified_rows"] = modified_rows[:50] if modified_rows else []
             
         else:
-            logger.warning("No suitable ID column found. Using basic row comparison.")
+            logger.warning("No suitable ID column found. Using basic row count comparison.")
             # No ID column, do basic row count comparison
             changes["summary"]["rows"] = {
                 "original_count": len(df1),

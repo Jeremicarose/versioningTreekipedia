@@ -56,7 +56,7 @@
     </div>
 </div>
 
-{% if comparison %}
+{% if comparison and comparison.files is defined %}
 <div class="card mb-4">
     <div class="card-header">
         <i class="bi bi-file-diff"></i> Comparison Results: {{ version1 }} → {{ version2 }}
@@ -102,7 +102,7 @@
             </div>
         </div>
         
-        {% if comparison.details.modified_rows %}
+        {% if comparison.details and comparison.details.modified_rows %}
         <hr>
         <h5>Modified Species</h5>
         <div class="table-container">
@@ -134,7 +134,7 @@
         {% endif %}
         
         <div class="row mt-4">
-            {% if comparison.details.added_rows %}
+            {% if comparison.details and comparison.details.added_rows %}
             <div class="col-md-6">
                 <h5>Added Species</h5>
                 <div class="p-3 bg-light rounded">
@@ -147,7 +147,7 @@
             </div>
             {% endif %}
             
-            {% if comparison.details.removed_rows %}
+            {% if comparison.details and comparison.details.removed_rows %}
             <div class="col-md-6">
                 <h5>Removed Species</h5>
                 <div class="p-3 bg-light rounded">
@@ -175,6 +175,11 @@
     <a href="{{ url_for('download_version', version_id=version2) }}" class="btn btn-outline-primary">
         <i class="bi bi-download"></i> Download {{ version2 }}
     </a>
+</div>
+{% elif comparison and comparison.error is defined %}
+<div class="alert alert-warning">
+    <h4 class="alert-heading"><i class="bi bi-exclamation-triangle"></i> Error</h4>
+    <p>{{ comparison.error }}</p>
 </div>
 {% endif %}
 {% endblock %}
