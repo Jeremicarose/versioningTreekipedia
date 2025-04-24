@@ -1,0 +1,86 @@
+{
+  "comparison_date": "2025-04-24T17:37:56.487932",
+  "files": {
+    "original": {
+      "path": "/Users/jeremicarose/Downloads/versioningTreekipedia/data/current/species_data.csv",
+      "row_count": 50776,
+      "column_count": 25
+    },
+    "modified": {
+      "path": "/var/folders/j4/nyh12wqj72l5mpkp_twtvr2m0000gn/T/tmp2p373uz1/sheet_7a32aefe-6178-4ac5-b8c3-3d86106d8556.csv",
+      "row_count": 15,
+      "column_count": 6
+    }
+  },
+  "summary": {
+    "columns": {
+      "added": [
+        "height",
+        "scientific_name",
+        "common_name",
+        "age",
+        "location"
+      ],
+      "removed": [
+        "DefoultImages",
+        "ecoregions",
+        "ConservationStatus",
+        "acceptedScientificName",
+        "DefaultImage",
+        "ElevationRanges",
+        "GeneralDescription",
+        "family",
+        "EcologicalFunction",
+        "biomes",
+        "commonCountries",
+        "class",
+        "Habitat",
+        "SoilTypes",
+        "genus",
+        "subspecies",
+        "ComercialSpecies",
+        "AssociatedMedia",
+        "SpeciesNative",
+        "order",
+        "totalOccurrences",
+        "Invasive",
+        "commonname",
+        "TaxonID"
+      ],
+      "common_count": 1
+    },
+    "rows": {
+      "added_count": 0,
+      "removed_count": 50087,
+      "common_count": 10,
+      "modified_count": 0
+    }
+  },
+  "details": {
+    "added_rows": [],
+    "removed_rows": [
+      "Eschweilera alata",
+      "Licania majuscula",
+      "Platysepalum chevalieri",
+      "Dalbergia havilandii",
+      "Elaeagnus yunnanensis",
+      "Sympetalandra schmutzii",
+      "Hildegardia gillettii",
+      "Juglans steyermarkii",
+      "Crataegus grandifolia",
+      "Symplocos serrulata",
+      "Maranthes panamensis",
+      "Eugenia locuples",
+      "Siparuna subinodora",
+      "Cupaniopsis macrocarpa",
+      "Havardia mexicana",
+      "Boehmeria subintegra",
+      "Oreopanax divulsus",
+      "Naucleopsis guianensis",
+      "Tovomita nidiae",
+      "Deinbollia reticulata"
+    ],
+    "modified_rows": []
+  },
+  "report_text": "Comparison Report\n=================\n\nOriginal: /Users/jeremicarose/Downloads/versioningTreekipedia/data/current/species_data.csv\nModified: /var/folders/j4/nyh12wqj72l5mpkp_twtvr2m0000gn/T/tmp2p373uz1/sheet_7a32aefe-6178-4ac5-b8c3-3d86106d8556.csv\n\nRows: 50776 \u2192 15 (-50761)\nColumns: 25 \u2192 6 (-19)\n\nAdded columns: height, scientific_name, common_name, age, location\nRemoved columns: DefoultImages, ecoregions, ConservationStatus, acceptedScientificName, DefaultImage, ElevationRanges, GeneralDescription, family, EcologicalFunction, biomes, commonCountries, class, Habitat, SoilTypes, genus, subspecies, ComercialSpecies, AssociatedMedia, SpeciesNative, order, totalOccurrences, Invasive, commonname, TaxonID\n\nUsing 'species' as identifier:\n  Added rows: 0\n  Removed rows: 50087\n  Modified rows: 0\n"
+}
