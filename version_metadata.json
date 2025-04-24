@@ -2,13 +2,13 @@
   "versions": [
     {
       "version": "v1.0.0",
-      "timestamp": "2025-03-07T13:49:05.349761",
+      "timestamp": "2025-04-24T17:32:12.626177",
       "message": "Initial species data",
-      "contributor": "System",
-      "file": "/Users/jeremicarose/Documents/dvc-example/data/current/species_data.csv",
+      "contributor": "Admin",
+      "file": "/Users/jeremicarose/Downloads/versioningTreekipedia/data/current/species_data.csv",
       "stats": {
-        "row_count": 0,
-        "column_count": 0
+        "row_count": 50776,
+        "column_count": 25
       }
     }
   ],
