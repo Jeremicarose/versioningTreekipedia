@@ -1,5 +1,6 @@
 flask==2.3.3
 werkzeug==2.3.7
+gunicorn==20.1.0
 pandas==2.1.0
 numpy==1.25.2
 dvc==3.27.0
@@ -9,6 +10,7 @@ itsdangerous==2.1.2
 Jinja2==3.1.2
 chardet==5.1.0
 requests==2.31.0
+
 
 # Google Sheet integration 
 google-auth==2.22.0
