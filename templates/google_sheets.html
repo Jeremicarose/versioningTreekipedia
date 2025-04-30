@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+
+{% block title %}Google Sheets Integration{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <h1 class="mb-3">
+            <i class="bi bi-file-earmark-spreadsheet"></i> Google Sheets Integration
+        </h1>
+        <p class="lead">Collaborate on species data using Google Sheets and sync with the version control system.</p>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header">
+        <i class="bi bi-link"></i> Connected Sheets
+    </div>
+    <div class="card-body">
+        {% if connected_sheets %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Sheet Name</th>
+                        <th>Last Sync</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for sheet in connected_sheets %}
+                    <tr>
+                        <td>
+                            <a href="{{ sheet.url}}" target="_blank" class="d-flex align-items-center">
+                                <i class="bi bi-file-earmark-spreadsheet text-success me-2"></i>
+                                {{ sheet.name }}
+                            </a>
+                        </td>
+                        <td>{{ sheet.last_sync }}</td>
+                        <td>
+                            <span class="badge bg-{{ sheet.status_color }}">{{ sheet.status }}</span>
+                        </td>
+                        <td>
+                            <div class="btn-group">
+                                <a href="{{ url_for('sync_sheet', sheet_id=sheet.id) }}" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-arrow-repeat"></i> Sync Now
+                                </a>
+                                <a href="{{ url_for('sheet_history', sheet_id=sheet.id) }}" class="btn btn-sm btn-outline-secondary">
+                                    <i class="bi bi-clock-history"></i> History
+                                </a>
+                                <button type="button" class="btn btn-sm btn-outline-danger"
+                                        data-bs-toggle="modal" data-bs-target="#disconnectModal"
+                                        data-sheet-id="{{ sheet.id }}" data-sheet-name="{{ sheet.name}}">
+                                        <i class="bi bi-x-circle"></i> Disconnect
+                                    </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-4">
+            <i class="bi bi-file-earmark-spreadsheet display-4 text-muted"></i>
+            <p class="mt-3">No connected Google Sheets found</p>
+        </div>
+        {% endif %}
+
+        <button type="button" class="btn btn-success mt-3" data-bs-toggle="modal" data-bs-target="#connectModal">
+            <i class="bi bi-plus-circle"></i> Connect New Sheet
+        </button>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <i class="bi bi-info-circle"></i> How It Works
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-4">
+                <div class="text-center mb-3">
+                    <i class="bi bi-pencil-square display-4 text-primary"></i>
+                    <h5 class="mt-2">1. Edit in Google Sheets</h5>
+                </div>
+                <p>Team members collaborate and edit data directly in Google Sheets. Comments, suggestions, and real-time editing make collaboration easy.</p>
+            </div>
+            <div class="col-md-4">
+                <div class="text-center mb-3">
+                    <i class="bi bi-arrow-repeat display-4 text-success"></i>
+                    <h5 class="mt-2">2. Sync Changes</h5>
+                </div>
+                <p>When you're ready, sync the Google Sheet with the versioning system. The system detects all changes made since the last sync.</p>
+            </div>
+            <div class="col-md-4">
+                <div class="text-center mb-3">
+                    <i class="bi bi-git display-4 text-danger"></i>
+                    <h5 class="mt-2">3. Create Versions</h5>
+                </div>
+                <p>Changes are automatically committed as new versions with detailed reports of what changed, keeping a complete history of your data.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Connect Modal -->
+<div class="modal fade" id="connectModal" tabindex="-1" aria-labelledby="connectModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="connectModalLabel">Connect Google Sheet</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="post" action="{{ url_for('connect_sheet') }}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="sheet_url" class="form-label">Google Sheet URL</label>
+                        <input type="url" class="form-control" id="sheet_url" name="sheet_url" 
+                               placeholder="https://docs.google.com/spreadsheets/d/..." required>
+                        <div class="form-text">Paste the full URL of your Google Sheet</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="sheet_name" class="form-label">Sheet Name</label>
+                        <input type="text" class="form-control" id="sheet_name" name="sheet_name" 
+                               placeholder="Species Data" required>
+                        <div class="form-text">Give this sheet a descriptive name</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="sheet_description" class="form-label">Description (Optional)</label>
+                        <textarea class="form-control" id="sheet_description" name="sheet_description" rows="2"></textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="species_id_column" class="form-label">Species ID Column</label>
+                        <input type="text" class="form-control" id="species_id_column" name="species_id_column" 
+                               value="species" required>
+                        <div class="form-text">Column name that uniquely identifies each species</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-success">Connect Sheet</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Disconnect Modal -->
+<div class="modal fade" id="disconnectModal" tabindex="-1" aria-labelledby="disconnectModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="disconnectModalLabel">Disconnect Google Sheet</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="post" action="{{ url_for('disconnect_sheet') }}">
+                <div class="modal-body">
+                    <input type="hidden" id="disconnect_sheet_id" name="sheet_id" value="">
+                    <p>Are you sure you want to disconnect the sheet: <strong id="disconnect_sheet_name"></strong>?</p>
+                    <p class="text-danger">This will remove the connection between the sheet and the versioning system, but won't delete any data.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-danger">Disconnect</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Set sheet ID and name in disconnect modal
+        const disconnectModal = document.getElementById('disconnectModal');
+        if (disconnectModal) {
+            disconnectModal.addEventListener('show.bs.modal', function(event) {
+                const button = event.relatedTarget;
+                const sheetId = button.getAttribute('data-sheet-id');
+                const sheetName = button.getAttribute('data-sheet-name');
+                
+                document.getElementById('disconnect_sheet_id').value = sheetId;
+                document.getElementById('disconnect_sheet_name').textContent = sheetName;
+            });
+        }
+    });
+</script>
+{% endblock %}

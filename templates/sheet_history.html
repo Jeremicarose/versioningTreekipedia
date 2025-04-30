@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+
+{% block title %}{{ sheet.name }} - Version History{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <h1 class="mb-3">
+            <i class="bi bi-file-earmark-spreadsheet"></i> {{ sheet.name }}
+        </h1>
+        <p class="lead">Version history for this Google Sheet</p>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header">
+        <i class="bi bi-info-circle"></i> Sheet Information
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <ul class="list-unstyled">
+                    <li><strong>Sheet Name:</strong> {{ sheet.name }}</li>
+                    <li><strong>Google Title:</strong> {{ sheet.google_name }}</li>
+                    {% if sheet.description %}
+                    <li><strong>Description:</strong> {{ sheet.description }}</li>
+                    {% endif %}
+                </ul>
+            </div>
+            <div class="col-md-6">
+                <ul class="list-unstyled">
+                    <li><strong>Created:</strong> {{ sheet.created_at.split('T')[0] if sheet.created_at else 'Unknown' }}</li>
+                    <li><strong>Last Synced:</strong> {{ sheet.last_sync.split('T')[0] if sheet.last_sync else 'Never' }}</li>
+                    <li><strong>ID Column:</strong> {{ sheet.species_id_column }}</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="btn-group mt-3">
+            <a href="{{ sheet.url }}" target="_blank" class="btn btn-primary">
+                <i class="bi bi-file-earmark-spreadsheet"></i> Open in Google Sheets
+            </a>
+            <a href="{{ url_for('sync_sheet', sheet_id=sheet.id) }}" class="btn btn-success">
+                <i class="bi bi-arrow-repeat"></i> Sync Now
+            </a>
+            <a href="{{ url_for('google_sheets') }}" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Back to Sheets
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <i class="bi bi-clock-history"></i> Version History
+    </div>
+    <div class="card-body p-0">
+        {% if versions %}
+        <div class="list-group list-group-flush">
+            {% for version in versions %}
+            <div class="list-group-item">
+                <div class="d-flex w-100 justify-content-between">
+                    <h5 class="mb-1">
+                        {{ version.version }}
+                        {% if version.is_current %}
+                        <span class="badge bg-primary">Current</span>
+                        {% endif %}
+                    </h5>
+                    <small>{{ version.timestamp.split('T')[0] }}</small>
+                </div>
+                <p class="mb-1">{{ version.message }}</p>
+                <small class="text-muted">Contributed by {{ version.contributor }}</small>
+                
+                {% if version.changes and version.changes.rows %}
+                <div class="mt-1">
+                    <span class="badge bg-success">+{{ version.changes.rows.added_count }}</span>
+                    <span class="badge bg-danger">-{{ version.changes.rows.removed_count }}</span>
+                    <span class="badge bg-info">~{{ version.changes.rows.modified_count }}</span>
+                </div>
+                {% endif %}
+                
+                <div class="d-flex mt-2">
+                    <a href="{{ url_for('version_detail', version_id=version.version) }}" class="btn btn-sm btn-outline-primary me-2">
+                        <i class="bi bi-eye"></i> View Version
+                    </a>
+                    <a href="{{ url_for('download_version', version_id=version.version) }}" class="btn btn-sm btn-outline-secondary">
+                        <i class="bi bi-download"></i> Download
+                    </a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="p-4 text-center">
+            <p class="text-muted">No versions have been created from this sheet yet.</p>
+            <a href="{{ url_for('sync_sheet', sheet_id=sheet.id) }}" class="btn btn-primary">
+                <i class="bi bi-arrow-repeat"></i> Sync Now to Create Version
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

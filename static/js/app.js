@@ -12,6 +12,12 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Initialize expandable details
     initExpandableDetails();
+    
+    // Initialize Google Sheets modal handlers
+    initGoogleSheetsModals();
+    
+    // Initialize version search functionality
+    initVersionSearch();
 });
 
 /**
@@ -217,4 +223,60 @@ function initExpandableDetails() {
             }
         });
     });
+}
+
+/**
+ * Initialize Google Sheets modals
+ */
+function initGoogleSheetsModals() {
+    // Disconnect sheet modal
+    const disconnectModal = document.getElementById('disconnectModal');
+    if (disconnectModal) {
+        disconnectModal.addEventListener('show.bs.modal', function(event) {
+            const button = event.relatedTarget;
+            const sheetId = button.getAttribute('data-sheet-id');
+            const sheetName = button.getAttribute('data-sheet-name');
+            
+            document.getElementById('disconnect_sheet_id').value = sheetId;
+            document.getElementById('disconnect_sheet_name').textContent = sheetName;
+        });
+    }
+    
+    // Copy sheet ID to clipboard button
+    const copySheetIdButtons = document.querySelectorAll('.copy-sheet-id');
+    copySheetIdButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const sheetId = this.getAttribute('data-sheet-id');
+            
+            navigator.clipboard.writeText(sheetId).then(() => {
+                const originalText = this.innerHTML;
+                this.innerHTML = '<i class="bi bi-check"></i> Copied!';
+                
+                setTimeout(() => {
+                    this.innerHTML = originalText;
+                }, 2000);
+            });
+        });
+    });
+}
+
+/**
+ * Initialize version search functionality
+ */
+function initVersionSearch() {
+    const searchInput = document.getElementById('version-search');
+    const versionList = document.getElementById('version-list');
+    
+    if (searchInput && versionList) {
+        searchInput.addEventListener('keyup', function() {
+            const searchTerm = this.value.toLowerCase();
+            const versionItems = versionList.querySelectorAll('.version-list-item');
+            
+            versionItems.forEach(item => {
+                const text = item.textContent.toLowerCase();
+                const display = text.includes(searchTerm) ? '' : 'none';
+                item.style.display = display;
+            });
+        });
+    }
 }
